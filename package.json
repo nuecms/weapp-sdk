@@ -1,7 +1,7 @@
 {
   "name": "@nuecms/weapp-sdk",
   "version": "0.1.0",
-  "description": "A WeChat Official Account SDK for Node.js",
+  "description": "A flexible and lightweight WeChat Mini Program SDK for Node.js",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -45,12 +45,10 @@
   ],
   "keywords": [
     "wechat",
-    "official-account",
+    "mini-program",
     "sdk",
     "typescript",
     "node",
-    "browser",
-    "api-client",
     "cache",
     "transformers",
     "redis"
