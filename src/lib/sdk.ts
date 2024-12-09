@@ -1,11 +1,42 @@
 import { sdkBuilder, SdkBuilderConfig, RedisCacheProvider, CacheProvider } from '@nuecms/sdk-builder';
 
+import { encryptAndSignature, checkAndDecrypt } from './sign';
+
+
+
+type Signature = {
+  symKey: string; // 对称密钥
+  symSn: string; // 对称密钥编号
+  privateSn: string; // 私钥编号
+  privateKey: string; // 私钥
+  certificate: string; // 开放平台证书
+}
+
+
+
+type Endpoint = {
+  path: string;
+  method: string;
+  isEncrypted?: boolean;
+}
+
+type WeChatSDKRequestInterceptorOptions = {
+  name: string,
+  endpoint: Endpoint,
+  path: string,
+  method: string,
+  body: any,
+  headers: any,
+  params: any,
+}
+
 interface WeChatSDKConfig {
   appId: string;
   appSecret: string;
+  signature?: false | Signature;
   baseUrl?: string;
   cacheProvider: CacheProvider;
-  customResponseTransformer?: (response: any) => any;
+  customResponseTransformer?: (response: any, options: any) => any;
   authCheckStatus?: (status: number, response: any) => boolean;
 }
 
@@ -18,6 +49,25 @@ export {
 export type WeChatSDK = ReturnType<typeof sdkBuilder>
 
 
+const useResponseTransformer = (config: WeChatSDKConfig, cusotmTransformer: Function) => {
+  return (response: any, options: any) => {
+    let result = response;
+    if (config.signature && options.endpoint.isEncrypted) {
+      result = checkAndDecrypt({
+        symKey: config.signature?.symKey || '',
+        symSn: config.signature?.symSn || '',
+        privateSn: config.signature?.privateSn || '',
+        privateKey: config.signature?.privateKey || '',
+        certificate: config.signature?.certificate || '',
+        url: `${config.baseUrl}${options.path}`,
+        appId: config.appId,
+      }, response);
+    }
+    return cusotmTransformer(response);
+  }
+}
+
+
 export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
   const sdkConfig: SdkBuilderConfig = {
     baseUrl: config.baseUrl || 'https://api.weixin.qq.com',
@@ -28,13 +78,15 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
     config: {
       appId: config.appId,
       appSecret: config.appSecret,
+      signature: config.signature || false,
     },
-    customResponseTransformer: config.customResponseTransformer || ((response: any) => {
+    customResponseTransformer: useResponseTransformer(config, config.customResponseTransformer || ((response: any) => {
       if (response.errcode != 0) {
+        // @todo: a custom error
         throw new Error(`WeChat API Error: ${response.errmsg}`);
       }
       return response;
-    }),
+    })),
     authCheckStatus: config.authCheckStatus || ((status, response) => {
       return status === 401 || ((response as any)?.errcode === 40001);
     })
@@ -48,10 +100,10 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
 
 
   // **OpenAPI Management**
-  sdk.r('clearQuota', '/cgi-bin/clear_quota', 'POST', { isEncrypted: true });
-  sdk.r('getApiQuota', '/cgi-bin/openapi/quota/get', 'POST', { isEncrypted: true });
-  sdk.r('getRidInfo', '/cgi-bin/openapi/rid/get', 'POST', { isEncrypted: true });
-  sdk.r('clearQuotaByAppSecret', '/cgi-bin/clear_quota/v2', 'POST');
+  sdk.z('clearQuota', { path: '/cgi-bin/clear_quota', method: 'POST', isEncrypted: true });
+  sdk.z('getApiQuota', { path: '/cgi-bin/openapi/quota/get', method: 'POST', isEncrypted: true });
+  sdk.z('getRidInfo', { path: '/cgi-bin/openapi/rid/get', method: 'POST', isEncrypted: true });
+  sdk.z('clearQuotaByAppSecret', '/cgi-bin/clear_quota/v2', 'POST');
 
   // **Mini Program Login**
   sdk.r('code2Session', '/sns/jscode2session', 'GET');
@@ -59,20 +111,20 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
   sdk.r('resetUserSessionKey', '/cgi-bin/mmbiz/resetsessionkey', 'POST');
 
   // **User Information**
-  sdk.r('getPluginOpenPId', '/wxa/getpluginopenpid', 'POST', { isEncrypted: true });
-  sdk.r('checkEncryptedData', '/cgi-bin/mmbiz/checkencrypteddata', 'POST', { isEncrypted: true });
+  sdk.z('getPluginOpenPId', { path: '/wxa/getpluginopenpid', method: 'POST', isEncrypted: true });
+  sdk.z('checkEncryptedData', { path: '/cgi-bin/mmbiz/checkencrypteddata', method: 'POST', isEncrypted: true });
   sdk.r('getPaidUnionid', '/wxa/getpaidunionid', 'GET');
 
   // **Network**
-  sdk.r('getUserEncryptKey', '/wxa/getuserencryptkey', 'POST', { isEncrypted: true });
+  sdk.z('getUserEncryptKey', { path: '/wxa/getuserencryptkey', method: 'POST', isEncrypted: true });
 
   // **Phone Number**
-  sdk.r('getPhoneNumber', '/wxa/business/getphonenumber', 'POST', { isEncrypted: true });
+  sdk.z('getPhoneNumber', { path: '/wxa/business/getphonenumber', method: 'POST', isEncrypted: true });
 
   // **Mini Program Codes**
-  sdk.r('getQRCode', '/wxa/getwxacode', 'POST', { isEncrypted: true });
-  sdk.r('getUnlimitedQRCode', '/wxa/getwxacodeunlimit', 'POST', { isEncrypted: true });
-  sdk.r('createQRCode', '/cgi-bin/wxaapp/createwxaqrcode', 'POST', { isEncrypted: true });
+  sdk.z('getQRCode', { path: '/wxa/getwxacode', method: 'POST', isEncrypted: true });
+  sdk.z('getUnlimitedQRCode', { path: '/wxa/getwxacodeunlimit', method: 'POST', isEncrypted: true });
+  sdk.z('createQRCode', { path: '/cgi-bin/wxaapp/createwxaqrcode', method: 'POST', isEncrypted: true });
 
   // **URL Scheme**
   sdk.r('queryScheme', '/wxa/queryscheme', 'POST');
@@ -90,22 +142,22 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
   sdk.r('getTempMedia', '/cgi-bin/media/get', 'GET');
   sdk.r('setTyping', '/cgi-bin/message/custom/typing', 'POST');
   sdk.r('uploadTempMedia', '/cgi-bin/media/upload', 'POST');
-  sdk.r('sendCustomMessage', '/cgi-bin/message/custom/send', 'POST', { isEncrypted: true });
+  sdk.z('sendCustomMessage', { path: '/cgi-bin/message/custom/send', method: 'POST', isEncrypted: true });
 
   // **Messaging**
   sdk.r('createActivityId', '/cgi-bin/message/wxopen/activityid/create', 'POST');
-  sdk.r('setUpdatableMsg', '/cgi-bin/message/wxopen/updatablemsg/send', 'POST', { isEncrypted: true });
+  sdk.z('setUpdatableMsg', { path: '/cgi-bin/message/wxopen/updatablemsg/send', method: 'POST', isEncrypted: true });
 
   // **Content Security**
-  sdk.r('msgSecCheck', '/wxa/msg_sec_check', 'POST', { isEncrypted: true });
-  sdk.r('mediaCheckAsync', '/wxa/media_check_async', 'POST', { isEncrypted: true });
+  sdk.z('msgSecCheck', { path: '/wxa/msg_sec_check', method: 'POST', isEncrypted: true });
+  sdk.z('mediaCheckAsync', { path: '/wxa/media_check_async', method: 'POST', isEncrypted: true });
 
   // **Data Analysis**
-  sdk.r('getDailySummary', '/datacube/getweanalysisappiddailysummarytrend', 'POST', { isEncrypted: true });
-  sdk.r('getVisitPage', '/datacube/getweanalysisappidvisitpage', 'POST', { isEncrypted: true });
-  sdk.r('getUserPortrait', '/datacube/getweanalysisappiduserportrait', 'POST', { isEncrypted: true });
-  sdk.r('getPerformanceData', '/wxaapi/log/getperformance', 'POST', { isEncrypted: true });
-  sdk.r('getVisitDistribution', '/datacube/getweanalysisappidvisitdistribution', 'POST', { isEncrypted: true });
+  sdk.z('getDailySummary', { path: '/datacube/getweanalysisappiddailysummarytrend', method: 'POST', isEncrypted: true });
+  sdk.z('getVisitPage', { path: '/datacube/getweanalysisappidvisitpage', method: 'POST', isEncrypted: true });
+  sdk.z('getUserPortrait', { path: '/datacube/getweanalysisappiduserportrait', method: 'POST', isEncrypted: true });
+  sdk.z('getPerformanceData', { path: '/wxaapi/log/getperformance', method: 'POST', isEncrypted: true });
+  sdk.z('getVisitDistribution', { path: '/datacube/getweanalysisappidvisitdistribution', method: 'POST', isEncrypted: true });
 
 
   // **Livestream Management**
@@ -119,8 +171,8 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
   sdk.r('verifyUploadResult', '/mall/verifyuploadinfo', 'POST');
 
   // **Plugin Management**
-  sdk.r('managePluginApplication', '/wxa/plugin', 'POST', { isEncrypted: true });
-  sdk.r('managePlugin', '/wxa/devplugin', 'POST', { isEncrypted: true });
+  sdk.z('managePluginApplication', { path: '/wxa/plugin', method: 'POST', isEncrypted: true });
+  sdk.z('managePlugin', { path: '/wxa/devplugin', method: 'POST', isEncrypted: true });
 
 
   // **Cloud Development**
@@ -138,8 +190,17 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
   sdk.r('bankCardOCR', '/cv/ocr/bankcard', 'POST');
 
 
-
-
+  sdk.rx('reqInterceptor', async (config, params?: {}) => {
+    const options = params as WeChatSDKRequestInterceptorOptions;
+    if (options && config.signature && options.endpoint.isEncrypted) {
+      return encryptAndSignature({
+        ...config.signature,
+        appId: config.appId,
+        url: `${config.baseUrl}${options.path}`,
+      }, options);
+    }
+    return options;
+  });
 
   // Register the auth method
   sdk.rx('authenticate', async (config) => {
