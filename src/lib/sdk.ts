@@ -1,4 +1,4 @@
-import { sdkBuilder, SdkBuilderConfig, RedisCacheProvider, CacheProvider } from '@nuecms/sdk-builder/src/index';
+import { sdkBuilder, SdkBuilderConfig, RedisCacheProvider, CacheProvider } from '@nuecms/sdk-builder';
 
 import { encryptAndSignature, checkAndDecrypt } from './sign';
 
