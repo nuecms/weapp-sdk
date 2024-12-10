@@ -1,6 +1,6 @@
 {
   "name": "@nuecms/weapp-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A flexible and lightweight WeChat Mini Program SDK for Node.js",
   "type": "module",
   "main": "dist/index.js",
