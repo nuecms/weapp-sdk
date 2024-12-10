@@ -1,6 +1,5 @@
 # **Wechat Mini Program SDK**
 
-> WIP: development in progress
 
 A flexible and lightweight SDK for building Wechat Mini Program with dynamic endpoints, caching, and response transformations.
 
@@ -30,6 +29,7 @@ A flexible and lightweight SDK for building Wechat Mini Program with dynamic end
     - [1. Import and Initialize the SDK Builder](#1-import-and-initialize-the-sdk-builder)
     - [2. Register API Endpoints](#2-register-api-endpoints)
     - [3. Make API Calls](#3-make-api-calls)
+    - [4. Signature with API calls](#4-signature-with-api-calls)
     - [More](#more)
   - [**Usage Examples**](#usage-examples)
     - [Registering Endpoints](#registering-endpoints)
@@ -78,6 +78,24 @@ sdk.r('createUser', '/users', 'POST');
 const user = await sdk.getUser({ id: '12345' });
 console.log(user);
 ```
+
+### 4. Signature with API calls
+  
+```typescript
+const sdk = wxSdk({
+  appId: string;
+  appSecret: string;
+  cacheProvider: CacheProvider;
+  signature: {
+    symKey: string; // 对称密钥
+    symSn: string; // 对称密钥编号
+    privateSn: string; // 私钥编号
+    privateKey: string; // 私钥
+    certificate: string; // 开放平台证书
+  } // default false
+});
+```
+
 
 ### More 
 
