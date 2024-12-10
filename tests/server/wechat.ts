@@ -99,45 +99,16 @@ const routes = {
   'GET /cgi-bin/token': async (req, res)=> {
     try {
       const sdk = wxSdk({
-        appId: 'wx95e5a58207fb5f67',
-        appSecret: '282323a19761e2baba5e5b24ad60fa0f',
+        appId: process.env.VITE_APP_APPID || '',
+        appSecret: process.env.VITE_APP_APPSECRET || '',
         cacheProvider: new RedisCacheProvider(new Redis()),
        }) as any;
       const response = await sdk.authenticate();
-
-      const test = await sdk.createMenu({
-        button: [
-          {
-            type: 'click',
-            name: '今日歌曲',
-            key: 'V1001_TODAY_MUSIC',
-          },
-          {
-            name: '菜单',
-            sub_button: [
-              {
-                type: 'view',
-                name: '搜索',
-                url: 'http://www.soso.com/',
-              },
-              {
-                type: 'view',
-                name: '视频',
-                url: 'http://v.qq.com/',
-              },
-              {
-                type: 'click',
-                name: '赞一下我们',
-                key: 'V1001_GOOD',
-              },
-            ],
-          },
-        ],
-      });
-      // console.log(test);
+      // console.log('response', response);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(response));
     } catch (error) {
+      console.error('Error:', error.message);
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('Internal Server Error');
     }
@@ -146,14 +117,24 @@ const routes = {
 
 // Handle incoming requests
 function handleRequest(req: IncomingMessage, res: ServerResponse): void {
-  // Parse the URL and query parameters
-  for (const [key, value] of Object.entries(routes)) {
-    const [method, path] = key.split(' ');
-    if (req.method === method && req.url?.startsWith(path)) {
-      value(req, res);
-      return;
+  console.log('Request:', req.method, req.url);
+
+  try {
+    // Parse the URL and query parameters
+    for (const [key, value] of Object.entries(routes)) {
+      const [method, path] = key.split(' ');
+      if (req.method === method && req.url?.startsWith(path)) {
+        value(req, res);
+        return;
+      }
     }
+  } catch (error) {
+    console.error('Error:', error.message);
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end('Internal Server Error');
+    return;
   }
+
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('Not Found');
 }

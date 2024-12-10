@@ -1,4 +1,4 @@
-import { sdkBuilder, SdkBuilderConfig, RedisCacheProvider, CacheProvider } from '@nuecms/sdk-builder';
+import { sdkBuilder, SdkBuilderConfig, RedisCacheProvider, CacheProvider } from '@nuecms/sdk-builder/src/index';
 
 import { encryptAndSignature, checkAndDecrypt } from './sign';
 
@@ -11,8 +11,6 @@ type Signature = {
   privateKey: string; // 私钥
   certificate: string; // 开放平台证书
 }
-
-
 
 type Endpoint = {
   path: string;
@@ -80,11 +78,7 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
       appSecret: config.appSecret,
       signature: config.signature || false,
     },
-    customResponseTransformer: useResponseTransformer(config, config.customResponseTransformer || ((response: any) => {
-      if (response.errcode != 0) {
-        // @todo: a custom error
-        throw new Error(`WeChat API Error: ${response.errmsg}`);
-      }
+    customResponseTransformer: useResponseTransformer(config, config.customResponseTransformer || ((response: any, options: any) => {
       return response;
     })),
     authCheckStatus: config.authCheckStatus || ((status, response) => {
@@ -103,7 +97,7 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
   sdk.z('clearQuota', { path: '/cgi-bin/clear_quota', method: 'POST', isEncrypted: true });
   sdk.z('getApiQuota', { path: '/cgi-bin/openapi/quota/get', method: 'POST', isEncrypted: true });
   sdk.z('getRidInfo', { path: '/cgi-bin/openapi/rid/get', method: 'POST', isEncrypted: true });
-  sdk.z('clearQuotaByAppSecret', '/cgi-bin/clear_quota/v2', 'POST');
+  sdk.r('clearQuotaByAppSecret', '/cgi-bin/clear_quota/v2', 'POST');
 
   // **Mini Program Login**
   sdk.r('code2Session', '/sns/jscode2session', 'GET');
@@ -208,7 +202,7 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
     const appSecret = config.appSecret
     const cacheKey = `wechat_access_token_${appId}`;
     const cached = await sdk.cacheProvider?.get(cacheKey);
-    if (cached.value) {
+    if (cached?.value) {
       sdk.enhanceConfig({ access_token: cached?.value?.access_token });
       return cached.value;
     }
@@ -221,7 +215,7 @@ export function wxSdk(config: WeChatSDKConfig): WeChatSDK {
       access_token: response.access_token,
     };
   })
-  sdk.authenticate()
+  // await sdk.authenticate()
   return sdk;
 }
 

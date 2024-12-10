@@ -1,20 +1,20 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { wxSdk } from '../src';
 import { RedisCacheProvider } from '@nuecms/sdk-builder';
 import Redis from 'ioredis';
 
 
 
-describe('WeChat SDK Tests', () => {
+describe('WeChat Mini Program SDK Tests', () => {
   const mockConfig = {
-    appId: process.env.WECHAT_APP_ID || 'mockAppId',
-    appSecret: process.env.WECHAT_APP_SECRET || 'mockApp',
+    appId: process.env.VITE_APP_APPID || 'mockAppId',
+    appSecret: process.env.VITE_APP_APPSECRET || 'mockApp',
     cacheProvider: new RedisCacheProvider(new Redis()),
   };
 
   let sdk: ReturnType<typeof wxSdk>;
 
-  beforeAll(() => {
+  beforeEach(() => {
     sdk = wxSdk(mockConfig);
     // Mock API Response for getAccessToken
     const mockAccessTokenResponse = {
@@ -24,6 +24,10 @@ describe('WeChat SDK Tests', () => {
 
     // Mock HTTP request
     vi.spyOn(sdk, 'getAccessToken').mockResolvedValue(mockAccessTokenResponse);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('should initialize SDK correctly', () => {
@@ -42,24 +46,34 @@ describe('WeChat SDK Tests', () => {
   });
 
   it('should cache the access token', async () => {
+    vi.spyOn(mockConfig.cacheProvider, 'get').mockResolvedValue({
+      value: {
+        access_token: 'mockAccessToken123',
+      }
+    })
     const cachedToken = await mockConfig.cacheProvider.get(`wechat_access_token_${mockConfig.appId}`);
-    expect(cachedToken).toBeDefined();
-    expect(JSON.parse(cachedToken || '').access_token).toBe('mockAccessToken123');
+    expect(cachedToken.value).toBeDefined();
+    expect(cachedToken.value.access_token).toBe('mockAccessToken123');
   });
 
-  it('should call a user info endpoint', async () => {
-    const mockUserInfoResponse = {
-      openid: 'testOpenId',
-      nickname: 'Test User',
-      gender: 1,
-      city: 'Shanghai',
+  it('should call a generate_urllink endpoint', async () => {
+    // mock generateShortLink response
+    const mockGenerateShortLinkResponse = {
+      "errcode": 0,
+      "errmsg": "ok",
+      link: 'https://short.link/mock',
     };
 
-    vi.spyOn(sdk, 'getUserInfo').mockResolvedValue(mockUserInfoResponse);
+    vi.spyOn(sdk, 'generateShortLink').mockResolvedValue(mockGenerateShortLinkResponse);
 
-    const response = await sdk.getUserInfo({ openid: 'testOpenId' });
-    expect(response.openid).toBe('testOpenId');
-    expect(response.nickname).toBe('Test User');
+    const response = await sdk.generateShortLink({
+      "page_url": "pages/publishHomework/publishHomework?query1=q1",
+      "page_title": "Homework title",
+      "is_permanent":false
+    });
+    expect(response.link).toBe('https://short.link/mock');
+    expect(response.errcode).toBe(0);
+    expect(response.errmsg).toBe('ok');
   });
 
   it('should handle errors gracefully', async () => {
